@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import AppShell from '@/components/layout/AppShell';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
@@ -9,63 +9,88 @@ import TrendGraph from '@/components/dashboard/TrendGraph';
 import LoadingOverlay from '@/components/dashboard/LoadingOverlay';
 import { Shield, Clock, Users } from 'lucide-react';
 
-const baselineState = {
-  status: 'Stable',
-  score: 92,
-  vitals: { hr: 70, sleep: 7.5, steps: 5200, fatigue: 'Low' },
-  insight: 'System monitoring active. All behavioral patterns are consistent with the user baseline. No anomalies detected in the past 48 hours.',
-  themeColor: 'hsl(178 100% 25%)',
-};
-
-const riskState = {
-  status: 'High Risk',
-  score: 42,
-  vitals: { hr: 88, sleep: 4.1, steps: 1200, fatigue: 'High' },
-  insight: '⚠ Critical Warning: 75% drop in daily activity and a 2-day cumulative sleep deficit detected. Heart rate elevated 25% above baseline. These patterns strongly correlate with pre-clinical decline episodes. Immediate caregiver intervention recommended.',
-  themeColor: 'hsl(43 96% 56%)',
-};
-
-const initialChartData = [
-  { name: 'Mon', score: 85 },
-  { name: 'Tue', score: 88 },
-  { name: 'Wed', score: 90 },
-  { name: 'Thu', score: 91 },
-  { name: 'Fri', score: 92 },
-  { name: 'Sat', score: 92 },
-  { name: 'Sun', score: 92 },
-];
-
-const riskChartData = [
-  { name: 'Mon', score: 85 },
-  { name: 'Tue', score: 88 },
-  { name: 'Wed', score: 90 },
-  { name: 'Thu', score: 82 },
-  { name: 'Fri', score: 68 },
-  { name: 'Sat', score: 55 },
-  { name: 'Sun', score: 42 },
-];
+interface AppState {
+  status: string;
+  score: number;
+  vitals: { hr: number; sleep: number; steps: number; fatigue: string };
+  insight: string;
+  themeColor: string;
+}
 
 const Index = () => {
-  const [appState, setAppState] = useState(baselineState);
-  const [chartData, setChartData] = useState(initialChartData);
-  const [isLoading, setIsLoading] = useState(false);
+  const [appState, setAppState] = useState<AppState | null>(null);
+  const [chartData, setChartData] = useState<Array<{ name: string; score: number }>>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [isSynced, setIsSynced] = useState(false);
   const [caregiverNotified, setCaregiverNotified] = useState(false);
   const [hospitalAlerted, setHospitalAlerted] = useState(false);
-  const patientName = "Esther Wanjiku";
+  const [patientName, setPatientName] = useState('');
+  const [stats, setStats] = useState({ risk_events_prevented: 0, avg_early_detection: '–', active_caregivers: 0 });
 
-  const handleSync = () => {
-    setIsLoading(true);
+  // Load initial data from backend on mount
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [vitalsRes, trendRes, patientRes, statsRes] = await Promise.all([
+          fetch('/api/vitals'),
+          fetch('/api/trend'),
+          fetch('/api/patient'),
+          fetch('/api/stats'),
+        ]);
+        const vitals = await vitalsRes.json();
+        const trend = await trendRes.json();
+        const patient = await patientRes.json();
+        const statsData = await statsRes.json();
+
+        setAppState({
+          status: vitals.status,
+          score: vitals.stability_score,
+          vitals: { hr: vitals.hr, sleep: vitals.sleep_hours, steps: vitals.steps, fatigue: vitals.fatigue },
+          insight: vitals.insight,
+          themeColor: vitals.theme_color,
+        });
+        setChartData(trend);
+        setPatientName(patient.name);
+        setStats(statsData);
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err);
+      }
+    };
+    load();
+  }, []);
+
+  const handleSync = async () => {
+    setIsSyncing(true);
     setCaregiverNotified(false);
     setHospitalAlerted(false);
-    setTimeout(() => {
-      const targetState = appState.status === 'Stable' ? riskState : baselineState;
-      setAppState(targetState);
-      setChartData(targetState.status === 'High Risk' ? riskChartData : initialChartData);
+    try {
+      const res = await fetch('/api/sync', { method: 'POST' });
+      const data = await res.json();
+      setAppState({
+        status: data.status,
+        score: data.stability_score,
+        vitals: { hr: data.hr, sleep: data.sleep_hours, steps: data.steps, fatigue: data.fatigue },
+        insight: data.insight,
+        themeColor: data.theme_color,
+      });
+      setChartData(data.trend);
       setIsSynced(true);
-      setIsLoading(false);
-    }, 2500);
+    } catch (err) {
+      console.error('Sync failed:', err);
+    } finally {
+      setIsSyncing(false);
+    }
   };
+
+  if (!appState) {
+    return (
+      <AppShell>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <p className="text-muted-foreground text-sm animate-pulse">Loading patient data…</p>
+        </div>
+      </AppShell>
+    );
+  }
 
   const isRiskState = appState.status === 'High Risk';
 
@@ -75,10 +100,10 @@ const Index = () => {
         patientName={patientName}
         onSync={handleSync}
         isSynced={isSynced}
-        isLoading={isLoading}
+        isLoading={isSyncing}
       />
 
-      <AnimatePresence>{isLoading && <LoadingOverlay />}</AnimatePresence>
+      <AnimatePresence>{isSyncing && <LoadingOverlay />}</AnimatePresence>
 
       <main className="max-w-7xl mx-auto px-6 py-8">
         {/* Status banner */}
@@ -130,9 +155,9 @@ const Index = () => {
         {/* Bottom stats */}
         <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
           {[
-            { icon: Shield, label: 'Risk Events Prevented', value: '12', sub: 'This quarter' },
-            { icon: Clock, label: 'Avg. Early Detection', value: '48h', sub: 'Before clinical decline' },
-            { icon: Users, label: 'Active Caregivers', value: '3', sub: 'Connected to patient' },
+            { icon: Shield, label: 'Risk Events Prevented', value: String(stats.risk_events_prevented), sub: 'This quarter' },
+            { icon: Clock, label: 'Avg. Early Detection', value: stats.avg_early_detection, sub: 'Before clinical decline' },
+            { icon: Users, label: 'Active Caregivers', value: String(stats.active_caregivers), sub: 'Connected to patient' },
           ].map(({ icon: Icon, label, value, sub }) => (
             <div key={label} className="bg-card p-5 rounded-2xl border border-border flex items-center gap-4">
               <div className="w-12 h-12 rounded-xl bg-accent flex items-center justify-center shrink-0">

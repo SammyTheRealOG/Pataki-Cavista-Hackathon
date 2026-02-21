@@ -1,4 +1,4 @@
-import { Activity, LayoutDashboard, BarChart3, UserCircle } from 'lucide-react';
+import { LayoutDashboard, BarChart3, UserCircle } from 'lucide-react';
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 
@@ -13,10 +13,7 @@ const AppShell = ({ children }: { children: React.ReactNode }) => (
     <header className="bg-card border-b border-border sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-6 py-3 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
-            <Activity size={20} className="text-primary-foreground" />
-          </div>
-          <span className="text-lg font-extrabold text-foreground tracking-tight">Pataki</span>
+          <img src="/Pataki logo only.png" alt="Pataki" className="h-9 w-auto" />
         </div>
         <nav className="flex items-center gap-1">
           {navItems.map(({ to, label, icon: Icon }) => (

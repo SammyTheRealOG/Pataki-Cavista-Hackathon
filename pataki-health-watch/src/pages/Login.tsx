@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
-import { Activity, Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 
 const Login = () => {
   const navigate = useNavigate();
@@ -24,10 +24,7 @@ const Login = () => {
       >
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
-          <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
-            <Activity size={32} className="text-primary-foreground" />
-          </div>
-          <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Pataki</h1>
+          <img src="/Pataki logo only.png" alt="Pataki" className="h-20 w-auto mb-4" />
           <p className="text-sm text-muted-foreground mt-1">Predictive Health Intelligence</p>
         </div>
 
