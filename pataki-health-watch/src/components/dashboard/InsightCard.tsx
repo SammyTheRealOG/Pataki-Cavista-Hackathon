@@ -64,7 +64,7 @@ const InsightCard = ({ insight, onNotifyCaregiver, onAlertHospital, caregiverNot
 
           <p className="text-xs text-muted-foreground text-center mt-1">
             <Phone size={12} className="inline mr-1" />
-            Emergency line: If unresponsive, call 911 immediately
+            Emergency line: If unresponsive, call 112 immediately
           </p>
         </motion.div>
       )}

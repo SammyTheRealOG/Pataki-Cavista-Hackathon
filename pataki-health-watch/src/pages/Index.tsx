@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import AppShell from '@/components/layout/AppShell';
 import DashboardHeader from '@/components/dashboard/DashboardHeader';
 import IntelligenceGauge from '@/components/dashboard/IntelligenceGauge';
 import VitalsCard from '@/components/dashboard/VitalsCard';
@@ -11,7 +12,7 @@ import { Shield, Clock, Users } from 'lucide-react';
 const baselineState = {
   status: 'Stable',
   score: 92,
-  vitals: { hr: 70.9, sleep: 7.8, steps: 6200, fatigue: 'Low' },
+  vitals: { hr: 70, sleep: 7.5, steps: 5200, fatigue: 'Low' },
   insight: 'System monitoring active. All behavioral patterns are consistent with the user baseline. No anomalies detected in the past 48 hours.',
   themeColor: 'hsl(178 100% 25%)',
 };
@@ -19,7 +20,7 @@ const baselineState = {
 const riskState = {
   status: 'High Risk',
   score: 42,
-  vitals: { hr: 109.6, sleep: 4.1, steps: 1200, fatigue: 'High' },
+  vitals: { hr: 88, sleep: 4.1, steps: 1200, fatigue: 'High' },
   insight: '⚠ Critical Warning: 75% drop in daily activity and a 2-day cumulative sleep deficit detected. Heart rate elevated 25% above baseline. These patterns strongly correlate with pre-clinical decline episodes. Immediate caregiver intervention recommended.',
   themeColor: 'hsl(43 96% 56%)',
 };
@@ -69,7 +70,7 @@ const Index = () => {
   const isRiskState = appState.status === 'High Risk';
 
   return (
-    <div className="min-h-screen bg-background">
+    <AppShell>
       <DashboardHeader
         patientName={patientName}
         onSync={handleSync}
@@ -145,7 +146,7 @@ const Index = () => {
           ))}
         </div>
       </main>
-    </div>
+    </AppShell>
   );
 };
 
