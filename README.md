@@ -1,10 +1,10 @@
 # Pataki
 
-## ✨ Introduction
+## Introduction
 
 Pataki Health Watch is an innovative web application designed to provide caregivers with real-time, AI-generated insights into the health and well-being of elderly patients. Leveraging a blend of wearable data simulation and powerful language models, Pataki transforms raw health metrics into actionable, easy-to-understand recommendations and alerts, ensuring timely intervention and peace of mind.
 
-## 🚀 Features
+## Features
 
 *   **Dynamic Dashboard:** A visually intuitive dashboard presenting a comprehensive overview of patient vitals and stability.
 *   **AI-Generated Insights:** Utilizes a Large Language Model (LLM) to translate complex health data into clear, concise caregiver insights.
@@ -13,7 +13,7 @@ Pataki Health Watch is an innovative web application designed to provide caregiv
 *   **Dynamic Trend Graphs:** Visualizes patient stability trends over time, dynamically highlighting significant changes (e.g., drops in score for at-risk states).
 *   **Detailed Data Overview:** A dedicated page for in-depth analysis of health metrics, presented with averages for clarity, and interactive charts.
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 **Frontend:**
 
@@ -36,7 +36,7 @@ Pataki Health Watch is an innovative web application designed to provide caregiv
 *   **Hugging Face API:** Integrated for AI model inference.
     *   **LLM Model:** `openai/gpt-oss-120b:groq` (used for generating health insights).
 
-## ⚙️ Installation & Setup
+## Installation & Setup
 To get Pataki running locally, follow these steps:
 
 1.  **Clone the repository:**
@@ -79,7 +79,7 @@ To get Pataki running locally, follow these steps:
         ```
         (The frontend will typically run on `http://localhost:5173` or similar)
 
-## 💡 Usage
+## Usage
 
 Once the application is running:
 
@@ -89,7 +89,7 @@ Once the application is running:
 4.  Navigate to the "Data Overview" page to see detailed health metrics and trends.
 5.  Test persistence by navigating away from the dashboard and back; the data should remain.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please feel free to open issues or submit pull requests.
    
