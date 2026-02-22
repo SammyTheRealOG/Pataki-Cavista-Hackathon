@@ -16,38 +16,61 @@ HF_URL = 'https://api-inference.huggingface.co/v1/chat/completions'
 AI_MODEL = 'mistralai/Mistral-7B-Instruct-v0.3'
 PATIENT_ID = 1
 
-# Stable-state baselines used for calculated averages
 BASELINE_HR = 70
 BASELINE_SLEEP_PER_PERIOD = 7.5
 BASELINE_STEPS_DAILY = 5200
 
 
 def get_ai_insight(patient: dict, vitals: dict) -> str:
-    """Call Hugging Face Mistral to generate a concise health assessment.
-    Always uses the live LLM — never falls back to stored text."""
-    baseline_hr = 70
-    baseline_sleep = 7.5
-    baseline_steps = 5200
+    """Call Hugging Face Mistral to generate a user-friendly caregiver insight.
+    Always uses the live LLM — never falls back to stored hardcoded text."""
+    first_name = patient['name'].split()[0]
+    caregiver = patient.get('caregiver_name', 'the caregiver')
+    is_at_risk = vitals['stability_score'] < 70
 
-    hr_pct = ((vitals['hr'] - baseline_hr) / baseline_hr) * 100
-    sleep_pct = ((vitals['sleep_hours'] - baseline_sleep) / baseline_sleep) * 100
-    steps_pct = ((vitals['steps'] - baseline_steps) / baseline_steps) * 100
+    hr_desc = 'elevated' if vitals['hr'] > 80 else 'normal'
+    sleep_desc = (
+        'very low' if vitals['sleep_hours'] < 5
+        else 'below normal' if vitals['sleep_hours'] < 6.5
+        else 'good'
+    )
+    activity_desc = (
+        'very little movement' if vitals['steps'] < 2000
+        else 'less movement than usual' if vitals['steps'] < 4000
+        else 'normal movement'
+    )
+    bp_desc = 'high' if vitals['bp_sys'] > 130 else 'normal'
+    fatigue_desc = vitals['fatigue'].lower()
+
+    if is_at_risk:
+        tone = (
+            f"{first_name} is showing warning signs and needs attention right away. "
+            f"Write 2-3 sentences that clearly alert the caregiver. "
+            f"Mention the specific signs of concern in plain, everyday language. "
+            f"End with a direct call to action — tell the caregiver to contact {caregiver} "
+            f"or seek medical help immediately. Do not use numbers, percentages, or medical jargon."
+        )
+    else:
+        tone = (
+            f"{first_name} is doing well today. "
+            f"Write 2-3 warm, reassuring sentences confirming everything looks fine. "
+            f"Mention what is going well. End by saying no action is needed and to continue "
+            f"the normal routine. Do not use numbers, percentages, or medical jargon."
+        )
 
     prompt = (
-        f"You are a health monitoring AI for elderly patients. "
-        f"Analyze the vitals below and write a 2-3 sentence assessment. "
-        f"Be direct and specific: if stable, confirm it; if concerning, name the exact risk and the action needed. "
-        f"Do not use vague language.\n\n"
-        f"Patient: {patient['name']}, Age {patient['age']}\n"
-        f"Status: {vitals['status']} | Stability Score: {vitals['stability_score']}/100\n"
-        f"Heart Rate: {vitals['hr']} bpm (baseline 70 bpm, {hr_pct:+.0f}%)\n"
-        f"Sleep: {vitals['sleep_hours']}h (baseline 7.5h, {sleep_pct:+.0f}%)\n"
-        f"Steps: {vitals['steps']} (baseline 5200, {steps_pct:+.0f}%)\n"
-        f"Fatigue: {vitals['fatigue']}\n"
-        f"Blood Pressure: {vitals['bp_sys']}/{vitals['bp_dia']} mmHg"
+        f"You are a health monitoring AI helping caregivers of elderly patients.\n"
+        f"{tone}\n\n"
+        f"Patient: {first_name}, {patient['age']} years old\n"
+        f"Heart rate today: {hr_desc}\n"
+        f"Sleep last night: {sleep_desc}\n"
+        f"Movement today: {activity_desc}\n"
+        f"Energy level: {fatigue_desc} fatigue\n"
+        f"Blood pressure: {bp_desc}\n"
+        f"Caregiver: {caregiver}"
     )
 
-    print(f'[AI] Sending request to Hugging Face — model: {AI_MODEL}')
+    print(f'[AI] Sending request to Hugging Face — model: {AI_MODEL}, state: {"risk" if is_at_risk else "stable"}')
     try:
         resp = requests.post(
             HF_URL,
@@ -60,7 +83,7 @@ def get_ai_insight(patient: dict, vitals: dict) -> str:
                 'messages': [{'role': 'user', 'content': prompt}],
                 'max_tokens': 150,
             },
-            timeout=15,
+            timeout=20,
         )
         resp.raise_for_status()
         content = resp.json()['choices'][0]['message']['content'].strip()
@@ -74,8 +97,8 @@ def get_ai_insight(patient: dict, vitals: dict) -> str:
         print(f'[AI] Hugging Face connection error: {e}')
         return 'AI service unreachable. Please check your network connection.'
     except requests.Timeout:
-        print('[AI] Hugging Face request timed out after 15 seconds.')
-        return 'AI insight timed out. Please try again.'
+        print('[AI] Hugging Face request timed out after 20 seconds.')
+        return 'AI insight timed out. Please try syncing again.'
     except Exception as e:
         print(f'[AI] Hugging Face unexpected error: {type(e).__name__}: {e}')
         return 'AI insight unavailable. Please ensure HF_API_KEY is configured correctly.'
@@ -103,18 +126,26 @@ def get_vitals():
     vitals = db.execute(
         'SELECT * FROM vitals WHERE patient_id = ? AND state = ?', (PATIENT_ID, state)
     ).fetchone()
-    db.close()
 
-    # Always generate a fresh LLM insight
-    insight = get_ai_insight(dict(patient), dict(vitals))
+    # Return the most recent stored LLM insight — only generate live if none exists yet.
+    # This prevents a slow page-load LLM call from racing with and overwriting a sync response.
+    insight_row = db.execute(
+        'SELECT insight_text FROM ai_insights WHERE patient_id = ? AND state = ? '
+        'ORDER BY created_at DESC LIMIT 1',
+        (PATIENT_ID, state)
+    ).fetchone()
 
-    # Persist the fresh insight so it can be referenced elsewhere
-    db = get_db()
-    db.execute(
-        'INSERT INTO ai_insights (patient_id, insight_text, state) VALUES (?, ?, ?)',
-        (PATIENT_ID, insight, state)
-    )
-    db.commit()
+    if insight_row:
+        insight = insight_row['insight_text']
+    else:
+        # First-ever load for this state — generate live and cache it
+        insight = get_ai_insight(dict(patient), dict(vitals))
+        db.execute(
+            'INSERT INTO ai_insights (patient_id, insight_text, state) VALUES (?, ?, ?)',
+            (PATIENT_ID, insight, state)
+        )
+        db.commit()
+
     db.close()
 
     result = dict(vitals)
@@ -206,7 +237,8 @@ def sync_data():
 
     db.execute('UPDATE patients SET current_state = ? WHERE id = ?', (new_state, PATIENT_ID))
 
-    # When switching to risk, stamp the risk vitals with the current time
+    # When switching to risk, stamp the risk vitals with the exact current time.
+    # Stable last_updated is permanently set to the historical date and is never changed.
     if new_state == 'risk':
         now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         db.execute(
@@ -224,7 +256,7 @@ def sync_data():
         (PATIENT_ID, new_state)
     ).fetchall()
 
-    # Always generate a fresh LLM insight — no stored fallback
+    # Always generate a fresh LLM insight on sync — this is the primary insight update point
     ai_text = get_ai_insight(dict(patient), dict(vitals))
     db.execute(
         'INSERT INTO ai_insights (patient_id, insight_text, state) VALUES (?, ?, ?)',
@@ -242,7 +274,6 @@ def sync_data():
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
-    """Calculate dashboard stats from actual DB data instead of hardcoded values."""
     db = get_db()
 
     risk_count = db.execute(

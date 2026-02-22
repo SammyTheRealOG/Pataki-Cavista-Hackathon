@@ -100,6 +100,10 @@ def init_db():
         );
     ''')
 
+    # Always reset patient to stable state on startup (demo mode — ensures clean start every run)
+    c.execute("UPDATE patients SET current_state = 'stable' WHERE id = 1")
+    conn.commit()
+
     # Skip seeding if already done
     if c.execute('SELECT COUNT(*) FROM patients').fetchone()[0] > 0:
         conn.close()
