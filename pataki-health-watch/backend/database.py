@@ -44,6 +44,7 @@ def init_db():
             bp_dia INTEGER,
             resting_hr INTEGER,
             activity_min INTEGER,
+            last_updated TEXT,
             FOREIGN KEY (patient_id) REFERENCES patients(id)
         );
 
@@ -116,28 +117,34 @@ def init_db():
     )
     patient_id = c.lastrowid
 
-    # --- Vitals for stable & risk ---
+    # --- Vitals ---
+    # Stable state snapshot: recorded Thu Feb 19, 2026 (3 days ago)
     c.execute(
         '''INSERT INTO vitals (patient_id, state, hr, sleep_hours, steps, fatigue,
-           stability_score, status, bp_sys, bp_dia, resting_hr, activity_min)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        (patient_id, 'stable', 70, 7.5, 5200, 'Low', 92, 'Stable', 118, 76, 58, 42)
+           stability_score, status, bp_sys, bp_dia, resting_hr, activity_min, last_updated)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (patient_id, 'stable', 70, 7.5, 5200, 'Low', 92, 'Stable', 118, 76, 58, 42,
+         '2026-02-19 10:23:00')
     )
+    # Risk state snapshot: today Feb 22, 2026 — timestamp updated dynamically on sync
     c.execute(
         '''INSERT INTO vitals (patient_id, state, hr, sleep_hours, steps, fatigue,
-           stability_score, status, bp_sys, bp_dia, resting_hr, activity_min)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        (patient_id, 'risk', 88, 4.1, 1200, 'High', 42, 'High Risk', 135, 88, 75, 12)
+           stability_score, status, bp_sys, bp_dia, resting_hr, activity_min, last_updated)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
+        (patient_id, 'risk', 88, 4.1, 1200, 'High', 42, 'High Risk', 135, 88, 75, 12,
+         '2026-02-22 09:00:00')
     )
 
     # --- Trend scores ---
+    # Stable trend: 7 days ending Feb 19 (Feb 13–19) — consistently healthy
     stable_trend = [
-        ('Mon', 85, 0), ('Tue', 88, 1), ('Wed', 90, 2), ('Thu', 91, 3),
-        ('Fri', 92, 4), ('Sat', 92, 5), ('Sun', 92, 6),
+        ('Thu', 88, 0), ('Fri', 89, 1), ('Sat', 90, 2), ('Sun', 91, 3),
+        ('Mon', 92, 4), ('Tue', 92, 5), ('Wed', 92, 6),
     ]
+    # Risk trend: 7 days ending today Feb 22 (Feb 16–22) — stable Mon–Thu, sharp decline Fri–Sun
     risk_trend = [
-        ('Mon', 85, 0), ('Tue', 88, 1), ('Wed', 90, 2), ('Thu', 82, 3),
-        ('Fri', 68, 4), ('Sat', 55, 5), ('Sun', 42, 6),
+        ('Mon', 91, 0), ('Tue', 91, 1), ('Wed', 90, 2), ('Thu', 89, 3),
+        ('Fri', 72, 4), ('Sat', 55, 5), ('Sun', 42, 6),
     ]
     for label, score, order in stable_trend:
         c.execute(
@@ -151,35 +158,40 @@ def init_db():
         )
 
     # --- Health metrics ---
+    # Day view: intraday data for today (Feb 22, risk day) — elevated throughout
     day_data = [
-        ('6am',  72, 58, 118, 76, 3200,  6.2, 15),
-        ('8am',  75, 59, 120, 77, 3500,  6.2, 20),
-        ('10am', 78, 60, 119, 78, 4200,  6.2, 30),
-        ('12pm', 80, 59, 121, 76, 4800,  6.2, 35),
-        ('2pm',  76, 58, 118, 75, 5200,  6.2, 38),
-        ('4pm',  74, 58, 117, 76, 5800,  6.2, 42),
-        ('6pm',  73, 57, 118, 76, 6200,  6.2, 45),
-        ('8pm',  70, 57, 116, 75, 6500,  6.2, 42),
-        ('10pm', 68, 56, 115, 74, 6600,  7.2, 42),
+        ('6am',  83, 70, 128, 84,  180, 4.1,  0),
+        ('8am',  85, 72, 131, 85,  380, 4.1,  5),
+        ('10am', 87, 73, 133, 87,  680, 4.1,  8),
+        ('12pm', 88, 74, 135, 88,  900, 4.1, 10),
+        ('2pm',  89, 75, 136, 88, 1050, 4.1, 11),
+        ('4pm',  88, 75, 135, 88, 1150, 4.1, 12),
+        ('6pm',  87, 74, 134, 87, 1200, 4.1, 12),
+        ('8pm',  86, 73, 133, 86, 1200, 4.1, 12),
+        ('10pm', 85, 72, 132, 85, 1200, 4.1, 12),
     ]
+    # Week view: Mon Feb 16 → Sun Feb 22
+    # Mon–Thu stable, Thu Feb 19 = last stable snapshot, Fri onward declining
     week_data = [
-        ('Mon', 68, 56, 116, 74, 5500, 7.8, 35),
-        ('Tue', 72, 58, 118, 76, 5200, 7.5, 40),
-        ('Wed', 74, 59, 120, 77, 4800, 7.2, 38),
-        ('Thu', 70, 57, 117, 75, 5400, 7.6, 42),
-        ('Fri', 76, 60, 122, 78, 4200, 6.8, 30),
-        ('Sat', 69, 57, 116, 74, 6100, 8.2, 50),
-        ('Sun', 67, 56, 115, 73, 5200, 8.5, 25),
+        ('Mon', 69, 57, 117, 75, 5400, 7.7, 41),   # Feb 16 — stable
+        ('Tue', 71, 58, 118, 76, 5200, 7.5, 42),   # Feb 17 — stable
+        ('Wed', 70, 57, 118, 75, 5100, 7.6, 40),   # Feb 18 — stable
+        ('Thu', 73, 58, 120, 77, 4900, 7.3, 38),   # Feb 19 — stable snapshot (3 days ago)
+        ('Fri', 78, 65, 126, 82, 3100, 5.8, 22),   # Feb 20 — notable decline
+        ('Sat', 84, 71, 131, 86, 1900, 4.5, 14),   # Feb 21 — significant decline
+        ('Sun', 88, 75, 135, 88, 1200, 4.1, 12),   # Feb 22 — risk (today)
     ]
+    # Month view: Feb 2026 by week
+    # Weeks 1–2 fully stable, Week 3 mostly stable with last 2 days declining, Week 4 = today
     month_data = [
-        ('Week 1', 72, 58, 119, 76, 38500, 52.5, 42),
-        ('Week 2', 71, 57, 118, 75, 37200, 51.8, 40),
-        ('Week 3', 73, 59, 120, 77, 39800, 53.2, 45),
-        ('Week 4', 70, 57, 117, 74, 40500, 52.8, 38),
+        ('Week 1', 70, 57, 118, 75, 36400, 52.5, 42),  # Feb 1–7: all stable
+        ('Week 2', 71, 58, 119, 76, 36400, 52.5, 41),  # Feb 8–14: all stable
+        ('Week 3', 72, 59, 120, 77, 32200, 49.1, 36),  # Feb 15–21: 5 stable + 2 declining
+        ('Week 4', 88, 75, 135, 88,  1200,  4.1, 12),  # Feb 22: today, risk
     ]
     year_data = [
-        ('Jan', 74, 59, 121, 77, 162000, 220.0, 38),
-        ('Feb', 72, 58, 119, 76, 155000, 210.0, 40),
+        ('Jan', 70, 57, 118, 75, 162000, 225.0, 42),
+        ('Feb', 73, 60, 121, 78, 142600, 210.7, 39),  # Partial month — ends risk
         ('Mar', 70, 57, 118, 75, 168000, 225.0, 42),
         ('Apr', 71, 57, 117, 74, 160000, 218.0, 41),
         ('May', 73, 59, 120, 77, 172000, 228.0, 45),
@@ -204,10 +216,10 @@ def init_db():
 
     # --- Period summaries ---
     summaries = [
-        ('day',   72, 58, 70,  7.2,   7.5,    5200,    4,  118, 76, 42),
-        ('week',  74, 59, 70, 49.8,  52.5,   38400,   -3,  118, 76, 40),
-        ('month', 71, 57, 70, 210.0, 225.0, 156000,    2,  118, 76, 41),
-        ('year',  70, 58, 70, 2628.0, 2737.0, 1900000, 5,  118, 76, 40),
+        ('day',   87, 73, 70,  4.1,   7.5,    1200,  -77, 133, 87, 10),
+        ('week',  77, 65, 70, 46.5,  52.5,   27000,  -26, 123, 81, 29),
+        ('month', 72, 60, 70, 158.2, 225.0, 106200,  -42, 121, 79, 38),
+        ('year',  71, 58, 70, 2390.7, 2737.0, 1825600, -8, 118, 76, 40),
     ]
     for pt, hrc, hrr, hrb, st, sb, steps, sc, bps, bpd, act in summaries:
         c.execute(
@@ -218,22 +230,7 @@ def init_db():
             (patient_id, pt, hrc, hrr, hrb, st, sb, steps, sc, bps, bpd, act)
         )
 
-    # --- Seed AI insights ---
-    c.execute(
-        'INSERT INTO ai_insights (patient_id, insight_text, state) VALUES (?, ?, ?)',
-        (patient_id,
-         'All vital signs are within normal range. Heart rate, sleep, and activity levels are consistent '
-         'with the patient baseline. No anomalies detected in the past 48 hours.',
-         'stable')
-    )
-    c.execute(
-        'INSERT INTO ai_insights (patient_id, insight_text, state) VALUES (?, ?, ?)',
-        (patient_id,
-         '⚠ Warning: 75% drop in daily activity and sleep deficit of 3.4 hours detected. '
-         'Heart rate is 26% above baseline. These patterns strongly correlate with pre-clinical '
-         'decline. Caregiver intervention recommended immediately.',
-         'risk')
-    )
+    # No pre-seeded AI insights — always generated live by the LLM
 
     conn.commit()
     conn.close()

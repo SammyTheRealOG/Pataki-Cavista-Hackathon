@@ -1,5 +1,6 @@
 import os
 import requests
+from datetime import datetime
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -10,10 +11,9 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)
 
-OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
-OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-# FIX: 'openrouter/free' is not a valid model ID — free models use the ':free' suffix
-AI_MODEL = 'meta-llama/llama-3.1-8b-instruct:free'
+HF_API_KEY = os.getenv('HF_API_KEY', '')
+HF_URL = 'https://api-inference.huggingface.co/v1/chat/completions'
+AI_MODEL = 'mistralai/Mistral-7B-Instruct-v0.3'
 PATIENT_ID = 1
 
 # Stable-state baselines used for calculated averages
@@ -22,13 +22,9 @@ BASELINE_SLEEP_PER_PERIOD = 7.5
 BASELINE_STEPS_DAILY = 5200
 
 
-def get_ai_insight(patient: dict, vitals: dict) -> str | None:
-    """Call OpenRouter to generate a concise health assessment. Returns None on failure."""
-    if not OPENROUTER_API_KEY or OPENROUTER_API_KEY == 'your_openrouter_api_key_here':
-        print('[AI] OPENROUTER_API_KEY is not set or is still the placeholder value — '
-              'skipping live AI call and using stored fallback insight.')
-        return None
-
+def get_ai_insight(patient: dict, vitals: dict) -> str:
+    """Call Hugging Face Mistral to generate a concise health assessment.
+    Always uses the live LLM — never falls back to stored text."""
     baseline_hr = 70
     baseline_sleep = 7.5
     baseline_steps = 5200
@@ -51,15 +47,13 @@ def get_ai_insight(patient: dict, vitals: dict) -> str | None:
         f"Blood Pressure: {vitals['bp_sys']}/{vitals['bp_dia']} mmHg"
     )
 
-    print(f'[AI] Sending request to OpenRouter — model: {AI_MODEL}')
+    print(f'[AI] Sending request to Hugging Face — model: {AI_MODEL}')
     try:
         resp = requests.post(
-            OPENROUTER_URL,
+            HF_URL,
             headers={
-                'Authorization': f'Bearer {OPENROUTER_API_KEY}',
+                'Authorization': f'Bearer {HF_API_KEY}',
                 'Content-Type': 'application/json',
-                'HTTP-Referer': 'http://localhost:8080',
-                'X-Title': 'Pataki Health Watch',
             },
             json={
                 'model': AI_MODEL,
@@ -70,21 +64,21 @@ def get_ai_insight(patient: dict, vitals: dict) -> str | None:
         )
         resp.raise_for_status()
         content = resp.json()['choices'][0]['message']['content'].strip()
-        print('[AI] OpenRouter response received successfully.')
+        print('[AI] Hugging Face response received successfully.')
         return content
     except requests.HTTPError as e:
-        print(f'[AI] OpenRouter HTTP error: status={e.response.status_code} — '
+        print(f'[AI] Hugging Face HTTP error: status={e.response.status_code} — '
               f'response body: {e.response.text[:300]}')
-        return None
+        return f'AI service error ({e.response.status_code}). Please check your HF_API_KEY.'
     except requests.ConnectionError as e:
-        print(f'[AI] OpenRouter connection error — check network or API URL: {e}')
-        return None
+        print(f'[AI] Hugging Face connection error: {e}')
+        return 'AI service unreachable. Please check your network connection.'
     except requests.Timeout:
-        print('[AI] OpenRouter request timed out after 15 seconds.')
-        return None
+        print('[AI] Hugging Face request timed out after 15 seconds.')
+        return 'AI insight timed out. Please try again.'
     except Exception as e:
-        print(f'[AI] OpenRouter unexpected error: {type(e).__name__}: {e}')
-        return None
+        print(f'[AI] Hugging Face unexpected error: {type(e).__name__}: {e}')
+        return 'AI insight unavailable. Please ensure HF_API_KEY is configured correctly.'
 
 
 # ---------------------------------------------------------------------------
@@ -109,14 +103,22 @@ def get_vitals():
     vitals = db.execute(
         'SELECT * FROM vitals WHERE patient_id = ? AND state = ?', (PATIENT_ID, state)
     ).fetchone()
-    insight_row = db.execute(
-        'SELECT insight_text FROM ai_insights WHERE patient_id = ? AND state = ? ORDER BY created_at DESC LIMIT 1',
-        (PATIENT_ID, state)
-    ).fetchone()
+    db.close()
+
+    # Always generate a fresh LLM insight
+    insight = get_ai_insight(dict(patient), dict(vitals))
+
+    # Persist the fresh insight so it can be referenced elsewhere
+    db = get_db()
+    db.execute(
+        'INSERT INTO ai_insights (patient_id, insight_text, state) VALUES (?, ?, ?)',
+        (PATIENT_ID, insight, state)
+    )
+    db.commit()
     db.close()
 
     result = dict(vitals)
-    result['insight'] = insight_row['insight_text'] if insight_row else 'No insight available.'
+    result['insight'] = insight
     result['theme_color'] = 'hsl(178 100% 25%)' if state == 'stable' else 'hsl(43 96% 56%)'
     return jsonify(result)
 
@@ -163,7 +165,6 @@ def get_health_summary():
     rows = [dict(r) for r in rows]
     n = len(rows)
 
-    # Compute averages / totals directly from the DB rows
     avg_hr = round(sum(r['hr'] for r in rows) / n)
     avg_rhr = round(sum(r['resting_hr'] for r in rows) / n)
     avg_bp_sys = round(sum(r['bp_sys'] for r in rows) / n)
@@ -172,7 +173,6 @@ def get_health_summary():
     total_sleep = round(sum(r['sleep'] for r in rows), 1)
     avg_activity = round(sum(r['activity_min'] for r in rows) / n)
 
-    # Expected baseline totals for step-change percentage
     baseline_steps_for_period = {
         'day': BASELINE_STEPS_DAILY,
         'week': BASELINE_STEPS_DAILY * 7,
@@ -205,6 +205,15 @@ def sync_data():
     new_state = 'risk' if current_state == 'stable' else 'stable'
 
     db.execute('UPDATE patients SET current_state = ? WHERE id = ?', (new_state, PATIENT_ID))
+
+    # When switching to risk, stamp the risk vitals with the current time
+    if new_state == 'risk':
+        now_str = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        db.execute(
+            'UPDATE vitals SET last_updated = ? WHERE patient_id = ? AND state = ?',
+            (now_str, PATIENT_ID, 'risk')
+        )
+
     db.commit()
 
     vitals = db.execute(
@@ -215,21 +224,13 @@ def sync_data():
         (PATIENT_ID, new_state)
     ).fetchall()
 
-    # Try live AI insight, fall back to stored
+    # Always generate a fresh LLM insight — no stored fallback
     ai_text = get_ai_insight(dict(patient), dict(vitals))
-    if ai_text:
-        db.execute(
-            'INSERT INTO ai_insights (patient_id, insight_text, state) VALUES (?, ?, ?)',
-            (PATIENT_ID, ai_text, new_state)
-        )
-        db.commit()
-    else:
-        fallback = db.execute(
-            'SELECT insight_text FROM ai_insights WHERE patient_id = ? AND state = ? ORDER BY created_at DESC LIMIT 1',
-            (PATIENT_ID, new_state)
-        ).fetchone()
-        ai_text = fallback['insight_text'] if fallback else 'No insight available.'
-
+    db.execute(
+        'INSERT INTO ai_insights (patient_id, insight_text, state) VALUES (?, ?, ?)',
+        (PATIENT_ID, ai_text, new_state)
+    )
+    db.commit()
     db.close()
 
     result = dict(vitals)
@@ -244,19 +245,15 @@ def get_stats():
     """Calculate dashboard stats from actual DB data instead of hardcoded values."""
     db = get_db()
 
-    # Count how many times a risk event was detected (ai_insights with state='risk')
     risk_count = db.execute(
         'SELECT COUNT(*) FROM ai_insights WHERE patient_id = ? AND state = ?',
         (PATIENT_ID, 'risk')
     ).fetchone()[0]
 
-    # Count patients who have a caregiver assigned
     caregiver_count = db.execute(
         "SELECT COUNT(*) FROM patients WHERE caregiver_name IS NOT NULL AND caregiver_name != ''"
     ).fetchone()[0]
 
-    # Early detection window: count days in the risk trend where score stayed >= 75
-    # before dropping — each day = 24h of early warning
     risk_trend = db.execute(
         'SELECT score FROM trend_scores WHERE patient_id = ? AND state = ? ORDER BY sort_order',
         (PATIENT_ID, 'risk')
