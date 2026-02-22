@@ -92,7 +92,3 @@ Once the application is running:
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to open issues or submit pull requests.
-
-## 📄 License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
