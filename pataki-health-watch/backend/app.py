@@ -12,7 +12,7 @@ CORS(app)
 
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
 OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-AI_MODEL = 'meta-llama/llama-3.1-8b-instruct:free'
+AI_MODEL = 'openrouter/free'
 PATIENT_ID = 1
 
 
