@@ -18,18 +18,12 @@ interface Hospital {
   phone?: string;
 }
 
-/** Haversine great-circle distance in kilometres. */
-function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLon = ((lon2 - lon1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) ** 2;
-  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-}
+const mockHospital: Hospital = {
+  name: 'Mock General Hospital',
+  address: '123 Mockingbird Lane, Mockville',
+  distance: 5.2,
+  phone: '555-123-4567',
+};
 
 const InsightCard = ({
   insight,
@@ -52,104 +46,16 @@ const InsightCard = ({
     setLocError('');
     setHospital(null);
 
-    if (!navigator.geolocation) {
-      setLocError('Geolocation is not supported by your browser. Please call 112.');
-      setIsLocating(false);
-      return;
-    }
+    // Simulate async operation
+    await new Promise(resolve => setTimeout(resolve, 1500));
 
-    try {
-      // 1. Get browser geolocation (free, no API key needed)
-      const position = await new Promise<GeolocationPosition>((resolve, reject) =>
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          timeout: 10000,
-          maximumAge: 0,
-          enableHighAccuracy: true,
-        })
-      );
-      const { latitude: userLat, longitude: userLon } = position.coords;
-      console.log(`[Emergency] User location acquired: ${userLat.toFixed(5)}, ${userLon.toFixed(5)}`);
+    // Use mock data
+    setHospital(mockHospital);
+    console.log(`[Emergency] Mock hospital set: "${mockHospital.name}"`);
 
-      // 2. Query Overpass API (free OpenStreetMap data, no API key needed)
-      //    Search for hospitals within 15 km of the user
-      const query =
-        `[out:json][timeout:15];` +
-        `(node["amenity"="hospital"](around:15000,${userLat},${userLon});` +
-        `way["amenity"="hospital"](around:15000,${userLat},${userLon}););` +
-        `out center tags;`;
-
-      const res = await fetch('https://overpass-api.de/api/interpreter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: 'data=' + encodeURIComponent(query),
-      });
-
-      if (!res.ok) {
-        throw new Error(`Overpass API returned HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
-      console.log(`[Emergency] Overpass API returned ${data.elements?.length ?? 0} hospital(s)`);
-
-      if (!data.elements || data.elements.length === 0) {
-        setLocError('No hospitals found within 15 km. Please call 112 immediately.');
-        return;
-      }
-
-      // 3. Find the nearest hospital by Haversine distance
-      let nearest: Hospital | null = null;
-      let minDist = Infinity;
-
-      for (const el of data.elements) {
-        // Nodes have lat/lon directly; ways have a center object
-        const elLat: number = el.lat ?? el.center?.lat;
-        const elLon: number = el.lon ?? el.center?.lon;
-        if (elLat == null || elLon == null) continue;
-
-        const dist = haversineKm(userLat, userLon, elLat, elLon);
-        if (dist < minDist) {
-          minDist = dist;
-          const tags = el.tags ?? {};
-          const addrParts = [
-            tags['addr:housenumber'],
-            tags['addr:street'],
-            tags['addr:city'],
-          ].filter(Boolean);
-
-          nearest = {
-            name: tags.name || 'Nearest Hospital',
-            address:
-              addrParts.length > 0
-                ? addrParts.join(', ')
-                : 'Address not available in map data',
-            distance: dist,
-            phone: tags.phone ?? tags['contact:phone'],
-          };
-        }
-      }
-
-      if (nearest) {
-        setHospital(nearest);
-        console.log(`[Emergency] Nearest hospital: "${nearest.name}" — ${nearest.distance.toFixed(1)} km`);
-      } else {
-        setLocError('Could not determine hospital coordinates. Please call 112.');
-      }
-    } catch (err: unknown) {
-      console.error('[Emergency] Failed to locate nearest hospital:', err);
-      if (err instanceof GeolocationPositionError) {
-        const msgs: Record<number, string> = {
-          1: 'Location access denied. Enable location services and try again, or call 112.',
-          2: 'Your location is currently unavailable. Please call 112 immediately.',
-          3: 'Location request timed out. Please call 112 immediately.',
-        };
-        setLocError(msgs[err.code] ?? 'Location error. Please call 112.');
-      } else {
-        setLocError('Failed to find nearest hospital. Please call 112 immediately.');
-      }
-    } finally {
-      setIsLocating(false);
-    }
+    setIsLocating(false);
   };
+
 
   return (
     <>
