@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { User, Watch, Phone } from 'lucide-react';
 import AppShell from '@/components/layout/AppShell';
+import { API_BASE_URL } from '@/lib/utils';
 
 interface Patient {
   name: string;
@@ -27,7 +28,7 @@ const Account = () => {
   const [patient, setPatient] = useState<Patient | null>(null);
 
   useEffect(() => {
-    fetch('/api/patient')
+    fetch(`${API_BASE_URL}/api/patient`)
       .then((r) => r.json())
       .then(setPatient)
       .catch((err) => console.error('Failed to load patient:', err));

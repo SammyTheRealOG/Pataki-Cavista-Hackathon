@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { HeartPulse, BedDouble, Footprints, Gauge, Timer } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from 'recharts';
 import AppShell from '@/components/layout/AppShell';
+import { API_BASE_URL } from '@/lib/utils';
 
 type Period = 'day' | 'week' | 'month' | 'year';
 
@@ -57,9 +58,9 @@ const Data = () => {
     const load = async () => {
       try {
         const [metricsRes, summaryRes, patientRes] = await Promise.all([
-          fetch(`/api/health-data?period=${period}`),
-          fetch(`/api/health-summary?period=${period}`),
-          fetch('/api/patient'),
+          fetch(`${API_BASE_URL}/api/health-data?period=${period}`),
+          fetch(`${API_BASE_URL}/api/health-summary?period=${period}`),
+          fetch(`${API_BASE_URL}/api/patient`),
         ]);
         setChartData(await metricsRes.json());
         setSummary(await summaryRes.json());

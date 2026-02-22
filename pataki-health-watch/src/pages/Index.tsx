@@ -9,6 +9,7 @@ import TrendGraph from '@/components/dashboard/TrendGraph';
 import LoadingOverlay from '@/components/dashboard/LoadingOverlay';
 import { Shield, Clock, Users } from 'lucide-react';
 import { mockInsights, mockRiskInsights } from '@/lib/mockInsights';
+import { API_BASE_URL } from '@/lib/utils';
 
 interface AppState {
   status: string;
@@ -73,10 +74,10 @@ const Index = () => {
 
       try {
         const [vitalsRes, trendRes, patientRes, statsRes] = await Promise.all([
-          fetch('/api/vitals'),
-          fetch('/api/trend'),
-          fetch('/api/patient'),
-          fetch('/api/stats'),
+          fetch(`${API_BASE_URL}/api/vitals`),
+          fetch(`${API_BASE_URL}/api/trend`),
+          fetch(`${API_BASE_URL}/api/patient`),
+          fetch(`${API_BASE_URL}/api/stats`),
         ]);
         const vitals = await vitalsRes.json();
         const trend = await trendRes.json();
@@ -124,7 +125,7 @@ const Index = () => {
     setCaregiverNotified(false);
     setHospitalAlerted(false);
     try {
-      const res = await fetch('/api/sync', { method: 'POST' });
+      const res = await fetch(`${API_BASE_URL}/api/sync`, { method: 'POST' });
       const data = await res.json();
       setAppState({
         status: data.status,
