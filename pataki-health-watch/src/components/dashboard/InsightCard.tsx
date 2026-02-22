@@ -19,10 +19,10 @@ interface Hospital {
 }
 
 const mockHospital: Hospital = {
-  name: 'Mock General Hospital',
-  address: '123 Mockingbird Lane, Mockville',
-  distance: 5.2,
-  phone: '555-123-4567',
+  name: 'Absolute Care Hospital',
+  address: '2 Musari Apeni St, Aiport Rd, Ikeja, Lagos.',
+  distance: 3.4,
+  phone: '0814 609 2019',
 };
 
 const InsightCard = ({
@@ -61,7 +61,7 @@ const InsightCard = ({
     <>
       <div className="bg-card p-6 rounded-2xl shadow-sm border border-border">
         <h3 className="text-lg font-bold text-card-foreground mb-1">AI Insight</h3>
-        <p className="text-sm text-muted-foreground mb-4">Note: All AI information should be fact checked</p>
+        <p className="text-sm text-muted-foreground mb-4"></p>
         <motion.p
           key={insight}
           initial={{ opacity: 0 }}
@@ -91,7 +91,7 @@ const InsightCard = ({
                   className="w-full flex items-center justify-center gap-2 bg-warning text-warning-foreground font-bold py-3 px-4 rounded-xl hover:opacity-90 transition-all animate-pulse"
                 >
                   <BellDot size={20} />
-                  Alert Caregiver
+                  The Caregiver has been Alerted
                 </button>
               )}
 

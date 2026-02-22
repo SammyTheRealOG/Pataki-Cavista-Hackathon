@@ -100,7 +100,7 @@ def init_db():
         );
     ''')
 
-    # Always reset patient to stable state on startup (demo mode — ensures clean start every run)
+    # Always reset patient to stable sta te on startup (demo mode — ensures clean start every run)
     c.execute("UPDATE patients SET current_state = 'stable' WHERE id = 1")
     conn.commit()
 
@@ -115,9 +115,9 @@ def init_db():
            (name, age, address, device_name, device_status, device_battery,
             caregiver_name, caregiver_relationship, caregiver_phone, caregiver_email, current_state)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        ('Esther Wanjiku', 78, '14 Riverside Dr, Nairobi, Kenya',
-         'Fitbit Sense 2', 'Connected', '72%',
-         'Amina Odhiambo', 'Daughter', '+254 712 345 678', 'amina.o@email.com', 'stable')
+        ('Amarachi Rabi', 78, 'Welcome Center Hotel, Airport Rd, Ikeja, Lagos',
+         'Xiaomi Smart Band 9', 'Connected', '72%',
+         'Amina Odhiambo', 'Daughter', '+234 712 345 678', 'amina.o@email.com', 'stable')
     )
     patient_id = c.lastrowid
 
@@ -135,7 +135,7 @@ def init_db():
         '''INSERT INTO vitals (patient_id, state, hr, sleep_hours, steps, fatigue,
            stability_score, status, bp_sys, bp_dia, resting_hr, activity_min, last_updated)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''',
-        (patient_id, 'risk', 88, 4.1, 1200, 'High', 42, 'High Risk', 135, 88, 75, 12,
+        (patient_id, 'risk', 115, 4.1, 1200, 'High', 42, 'High Risk', 135, 88, 75, 12,
          '2026-02-22 09:00:00')
     )
 
@@ -183,7 +183,7 @@ def init_db():
         ('Thu', 73, 58, 120, 77, 4900, 7.3, 38),   # Feb 19 — stable snapshot (3 days ago)
         ('Fri', 78, 65, 126, 82, 3100, 5.8, 22),   # Feb 20 — notable decline
         ('Sat', 84, 71, 131, 86, 1900, 4.5, 14),   # Feb 21 — significant decline
-        ('Sun', 88, 75, 135, 88, 1200, 4.1, 12),   # Feb 22 — risk (today)
+        ('Sun', 115, 75, 135, 88, 1200, 4.1, 12),   # Feb 22 — risk (today) - HR updated to 115
     ]
     # Month view: Feb 2026 by week
     # Weeks 1–2 fully stable, Week 3 mostly stable with last 2 days declining, Week 4 = today
@@ -239,3 +239,6 @@ def init_db():
     conn.commit()
     conn.close()
     print('Database initialized and seeded.')
+
+get_db()
+init_db()

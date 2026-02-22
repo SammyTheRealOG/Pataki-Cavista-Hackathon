@@ -100,21 +100,21 @@ const Data = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
             <MetricCard
               icon={<HeartPulse size={22} className="text-danger" />}
-              label="Heart Rate"
+              label="Average Heart Rate"
               value={summary.hr_current}
               unit="bpm"
               sub={`Resting: ${summary.hr_resting} · Baseline: ${summary.hr_baseline}`}
             />
             <MetricCard
               icon={<BedDouble size={22} className="text-primary" />}
-              label="Sleep Summary"
+              label="Average Sleep Summary"
               value={summary.sleep_total}
               unit="h"
               sub={`Baseline: ${summary.sleep_baseline}h`}
             />
             <MetricCard
               icon={<Footprints size={22} className="text-success" />}
-              label="Daily Activity"
+              label="Average Daily Activity"
               value={summary.steps.toLocaleString()}
               unit="steps"
               sub={`${summary.step_change > 0 ? '+' : ''}${summary.step_change}% from average`}
@@ -127,7 +127,7 @@ const Data = () => {
           {/* Heart Rate Chart */}
           <div className="bg-card border border-border rounded-2xl p-6">
             <h3 className="text-base font-bold text-card-foreground mb-1">Heart Rate</h3>
-            <p className="text-xs text-muted-foreground mb-4">Current & Resting HR over time</p>
+            <p className="text-xs text-muted-foreground mb-4">Current & Resting HR over time (Average)</p>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
@@ -135,8 +135,8 @@ const Data = () => {
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(215 14% 50%)' }} />
                   <YAxis tick={{ fontSize: 11, fill: 'hsl(215 14% 50%)' }} domain={[50, 100]} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="hr" stroke="hsl(0 84% 60%)" strokeWidth={2} dot={false} name="Heart Rate" />
-                  <Line type="monotone" dataKey="resting_hr" stroke="hsl(178 100% 25%)" strokeWidth={2} dot={false} strokeDasharray="5 5" name="Resting HR" />
+                  <Line type="monotone" dataKey="hr" stroke="hsl(0 84% 60%)" strokeWidth={2} dot={false} name="Avg. Heart Rate" />
+                  <Line type="monotone" dataKey="resting_hr" stroke="hsl(178 100% 25%)" strokeWidth={2} dot={false} strokeDasharray="5 5" name="Avg. Resting HR" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -145,7 +145,7 @@ const Data = () => {
           {/* Blood Pressure Chart */}
           <div className="bg-card border border-border rounded-2xl p-6">
             <h3 className="text-base font-bold text-card-foreground mb-1">Blood Pressure</h3>
-            <p className="text-xs text-muted-foreground mb-4">Systolic / Diastolic trends</p>
+            <p className="text-xs text-muted-foreground mb-4">Systolic / Diastolic trends (Average)</p>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
@@ -153,8 +153,8 @@ const Data = () => {
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(215 14% 50%)' }} />
                   <YAxis tick={{ fontSize: 11, fill: 'hsl(215 14% 50%)' }} domain={[60, 140]} />
                   <Tooltip />
-                  <Line type="monotone" dataKey="bp_sys" stroke="hsl(43 96% 56%)" strokeWidth={2} dot={false} name="Systolic" />
-                  <Line type="monotone" dataKey="bp_dia" stroke="hsl(152 60% 42%)" strokeWidth={2} dot={false} name="Diastolic" />
+                  <Line type="monotone" dataKey="bp_sys" stroke="hsl(43 96% 56%)" strokeWidth={2} dot={false} name="Avg. Systolic" />
+                  <Line type="monotone" dataKey="bp_dia" stroke="hsl(152 60% 42%)" strokeWidth={2} dot={false} name="Avg. Diastolic" />
                 </LineChart>
               </ResponsiveContainer>
             </div>
@@ -163,7 +163,7 @@ const Data = () => {
           {/* Steps Chart */}
           <div className="bg-card border border-border rounded-2xl p-6">
             <h3 className="text-base font-bold text-card-foreground mb-1">Step Count</h3>
-            <p className="text-xs text-muted-foreground mb-4">Daily movement tracking</p>
+            <p className="text-xs text-muted-foreground mb-4">Daily movement tracking (Average)</p>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
@@ -171,7 +171,7 @@ const Data = () => {
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(215 14% 50%)' }} />
                   <YAxis tick={{ fontSize: 11, fill: 'hsl(215 14% 50%)' }} />
                   <Tooltip />
-                  <Area type="monotone" dataKey="steps" stroke="hsl(152 60% 42%)" fill="hsl(152 60% 42% / 0.15)" strokeWidth={2} name="Steps" />
+                  <Area type="monotone" dataKey="steps" stroke="hsl(152 60% 42%)" fill="hsl(152 60% 42% / 0.15)" strokeWidth={2} name="Avg. Steps" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -180,7 +180,7 @@ const Data = () => {
           {/* Sleep Duration Chart */}
           <div className="bg-card border border-border rounded-2xl p-6">
             <h3 className="text-base font-bold text-card-foreground mb-1">Sleep Duration</h3>
-            <p className="text-xs text-muted-foreground mb-4">Hours of sleep per period</p>
+            <p className="text-xs text-muted-foreground mb-4">Hours of sleep per period (Average)</p>
             <div className="h-56">
               <ResponsiveContainer width="100%" height="100%">
                 <AreaChart data={chartData}>
@@ -188,7 +188,7 @@ const Data = () => {
                   <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'hsl(215 14% 50%)' }} />
                   <YAxis tick={{ fontSize: 11, fill: 'hsl(215 14% 50%)' }} domain={[4, 10]} />
                   <Tooltip />
-                  <Area type="monotone" dataKey="sleep" stroke="hsl(178 100% 25%)" fill="hsl(178 100% 25% / 0.1)" strokeWidth={2} name="Sleep (h)" />
+                  <Area type="monotone" dataKey="sleep" stroke="hsl(178 100% 25%)" fill="hsl(178 100% 25% / 0.1)" strokeWidth={2} name="Avg. Sleep (h)" />
                 </AreaChart>
               </ResponsiveContainer>
             </div>
@@ -199,12 +199,12 @@ const Data = () => {
         {summary && (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
             {[
-              { icon: <HeartPulse size={18} className="text-danger" />, label: 'Heart Rate', value: `${summary.hr_current} bpm` },
-              { icon: <HeartPulse size={18} className="text-primary" />, label: 'Resting HR', value: `${summary.hr_resting} bpm` },
-              { icon: <Gauge size={18} className="text-warning" />, label: 'Blood Pressure', value: `${summary.bp_sys}/${summary.bp_dia} mmHg` },
-              { icon: <Footprints size={18} className="text-success" />, label: 'Step Count', value: summary.steps.toLocaleString() },
-              { icon: <BedDouble size={18} className="text-primary" />, label: 'Sleep Duration', value: `${summary.sleep_total}h` },
-              { icon: <Timer size={18} className="text-accent-foreground" />, label: 'Activity Min', value: `${summary.activity_min} min` },
+              { icon: <HeartPulse size={18} className="text-danger" />, label: 'Avg. Heart Rate', value: `${summary.hr_current} bpm` },
+              { icon: <HeartPulse size={18} className="text-primary" />, label: 'Avg. Resting HR', value: `${summary.hr_resting} bpm` },
+              { icon: <Gauge size={18} className="text-warning" />, label: 'Avg. Blood Pressure', value: `${summary.bp_sys}/${summary.bp_dia} mmHg` },
+              { icon: <Footprints size={18} className="text-success" />, label: 'Avg. Step Count', value: summary.steps.toLocaleString() },
+              { icon: <BedDouble size={18} className="text-primary" />, label: 'Avg. Sleep Duration', value: `${summary.sleep_total}h` },
+              { icon: <Timer size={18} className="text-accent-foreground" />, label: 'Avg. Activity Min', value: `${summary.activity_min} min` },
             ].map(({ icon, label, value }) => (
               <div key={label} className="bg-card border border-border rounded-xl p-4 text-center">
                 <div className="flex justify-center mb-2">{icon}</div>
