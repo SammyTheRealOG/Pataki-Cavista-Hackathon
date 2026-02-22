@@ -12,13 +12,21 @@ CORS(app)
 
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY', '')
 OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions'
-AI_MODEL = 'openrouter/free'
+# FIX: 'openrouter/free' is not a valid model ID — free models use the ':free' suffix
+AI_MODEL = 'meta-llama/llama-3.1-8b-instruct:free'
 PATIENT_ID = 1
+
+# Stable-state baselines used for calculated averages
+BASELINE_HR = 70
+BASELINE_SLEEP_PER_PERIOD = 7.5
+BASELINE_STEPS_DAILY = 5200
 
 
 def get_ai_insight(patient: dict, vitals: dict) -> str | None:
     """Call OpenRouter to generate a concise health assessment. Returns None on failure."""
     if not OPENROUTER_API_KEY or OPENROUTER_API_KEY == 'your_openrouter_api_key_here':
+        print('[AI] OPENROUTER_API_KEY is not set or is still the placeholder value — '
+              'skipping live AI call and using stored fallback insight.')
         return None
 
     baseline_hr = 70
@@ -43,6 +51,7 @@ def get_ai_insight(patient: dict, vitals: dict) -> str | None:
         f"Blood Pressure: {vitals['bp_sys']}/{vitals['bp_dia']} mmHg"
     )
 
+    print(f'[AI] Sending request to OpenRouter — model: {AI_MODEL}')
     try:
         resp = requests.post(
             OPENROUTER_URL,
@@ -60,9 +69,21 @@ def get_ai_insight(patient: dict, vitals: dict) -> str | None:
             timeout=15,
         )
         resp.raise_for_status()
-        return resp.json()['choices'][0]['message']['content'].strip()
+        content = resp.json()['choices'][0]['message']['content'].strip()
+        print('[AI] OpenRouter response received successfully.')
+        return content
+    except requests.HTTPError as e:
+        print(f'[AI] OpenRouter HTTP error: status={e.response.status_code} — '
+              f'response body: {e.response.text[:300]}')
+        return None
+    except requests.ConnectionError as e:
+        print(f'[AI] OpenRouter connection error — check network or API URL: {e}')
+        return None
+    except requests.Timeout:
+        print('[AI] OpenRouter request timed out after 15 seconds.')
+        return None
     except Exception as e:
-        print(f'OpenRouter error: {e}')
+        print(f'[AI] OpenRouter unexpected error: {type(e).__name__}: {e}')
         return None
 
 
@@ -127,16 +148,53 @@ def get_health_data():
 
 @app.route('/api/health-summary', methods=['GET'])
 def get_health_summary():
+    """Calculate summary metrics directly from health_metrics rows in the DB."""
     period = request.args.get('period', 'week')
     db = get_db()
-    row = db.execute(
-        'SELECT * FROM period_summaries WHERE patient_id = ? AND period_type = ?',
+    rows = db.execute(
+        'SELECT * FROM health_metrics WHERE patient_id = ? AND period_type = ?',
         (PATIENT_ID, period)
-    ).fetchone()
+    ).fetchall()
     db.close()
-    if not row:
-        return jsonify({'error': 'Summary not found'}), 404
-    return jsonify(dict(row))
+
+    if not rows:
+        return jsonify({'error': 'No health data found for this period'}), 404
+
+    rows = [dict(r) for r in rows]
+    n = len(rows)
+
+    # Compute averages / totals directly from the DB rows
+    avg_hr = round(sum(r['hr'] for r in rows) / n)
+    avg_rhr = round(sum(r['resting_hr'] for r in rows) / n)
+    avg_bp_sys = round(sum(r['bp_sys'] for r in rows) / n)
+    avg_bp_dia = round(sum(r['bp_dia'] for r in rows) / n)
+    total_steps = sum(r['steps'] for r in rows)
+    total_sleep = round(sum(r['sleep'] for r in rows), 1)
+    avg_activity = round(sum(r['activity_min'] for r in rows) / n)
+
+    # Expected baseline totals for step-change percentage
+    baseline_steps_for_period = {
+        'day': BASELINE_STEPS_DAILY,
+        'week': BASELINE_STEPS_DAILY * 7,
+        'month': BASELINE_STEPS_DAILY * 30,
+        'year': BASELINE_STEPS_DAILY * 365,
+    }.get(period, BASELINE_STEPS_DAILY * 7)
+
+    step_change = round(((total_steps - baseline_steps_for_period) / baseline_steps_for_period) * 100)
+    sleep_baseline = round(BASELINE_SLEEP_PER_PERIOD * n, 1)
+
+    return jsonify({
+        'hr_current': avg_hr,
+        'hr_resting': avg_rhr,
+        'hr_baseline': BASELINE_HR,
+        'sleep_total': total_sleep,
+        'sleep_baseline': sleep_baseline,
+        'steps': total_steps,
+        'step_change': step_change,
+        'bp_sys': avg_bp_sys,
+        'bp_dia': avg_bp_dia,
+        'activity_min': avg_activity,
+    })
 
 
 @app.route('/api/sync', methods=['POST'])
@@ -183,10 +241,35 @@ def sync_data():
 
 @app.route('/api/stats', methods=['GET'])
 def get_stats():
+    """Calculate dashboard stats from actual DB data instead of hardcoded values."""
+    db = get_db()
+
+    # Count how many times a risk event was detected (ai_insights with state='risk')
+    risk_count = db.execute(
+        'SELECT COUNT(*) FROM ai_insights WHERE patient_id = ? AND state = ?',
+        (PATIENT_ID, 'risk')
+    ).fetchone()[0]
+
+    # Count patients who have a caregiver assigned
+    caregiver_count = db.execute(
+        "SELECT COUNT(*) FROM patients WHERE caregiver_name IS NOT NULL AND caregiver_name != ''"
+    ).fetchone()[0]
+
+    # Early detection window: count days in the risk trend where score stayed >= 75
+    # before dropping — each day = 24h of early warning
+    risk_trend = db.execute(
+        'SELECT score FROM trend_scores WHERE patient_id = ? AND state = ? ORDER BY sort_order',
+        (PATIENT_ID, 'risk')
+    ).fetchall()
+    days_before_drop = sum(1 for row in risk_trend if row['score'] >= 75)
+    avg_early_detection = f'{days_before_drop * 24}h' if days_before_drop > 0 else '24h'
+
+    db.close()
+
     return jsonify({
-        'risk_events_prevented': 12,
-        'avg_early_detection': '48h',
-        'active_caregivers': 3,
+        'risk_events_prevented': risk_count,
+        'avg_early_detection': avg_early_detection,
+        'active_caregivers': caregiver_count,
     })
 
 
