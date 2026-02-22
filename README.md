@@ -1,12 +1,8 @@
-# Pataki Health Watch 🩺
-
-**Empowering Caregivers with AI-Driven Health Insights & Proactive Alerts**
+# Pataki
 
 ## ✨ Introduction
 
 Pataki Health Watch is an innovative web application designed to provide caregivers with real-time, AI-generated insights into the health and well-being of elderly patients. Leveraging a blend of wearable data simulation and powerful language models, Pataki transforms raw health metrics into actionable, easy-to-understand recommendations and alerts, ensuring timely intervention and peace of mind.
-
-This project was developed as a hackathon entry to demonstrate the potential of AI in elder care.
 
 ## 🚀 Features
 
@@ -14,10 +10,8 @@ This project was developed as a hackathon entry to demonstrate the potential of 
 *   **AI-Generated Insights:** Utilizes a Large Language Model (LLM) to translate complex health data into clear, concise caregiver insights.
 *   **Risk Detection & Alerts:** Proactively identifies "at-risk" patient states, providing immediate, actionable calls to emergency services or designated caregivers.
 *   **Real-time Data Synchronization:** Simulates real-time data updates with a "Sync Data" feature, instantly reflecting changes in patient status and insights.
-*   **Persistent State:** Dashboard data persists across navigation within the same browser session, ensuring a seamless user experience.
 *   **Dynamic Trend Graphs:** Visualizes patient stability trends over time, dynamically highlighting significant changes (e.g., drops in score for at-risk states).
 *   **Detailed Data Overview:** A dedicated page for in-depth analysis of health metrics, presented with averages for clarity, and interactive charts.
-*   **Mock Data Fallback:** Ensures a smooth user experience by displaying mock data when AI services are unavailable or fail to respond.
 
 ## 🛠️ Tech Stack
 
@@ -42,23 +36,8 @@ This project was developed as a hackathon entry to demonstrate the potential of 
 *   **Hugging Face API:** Integrated for AI model inference.
     *   **LLM Model:** `openai/gpt-oss-120b:groq` (used for generating health insights).
 
-## ARCHITECTURE
-
-The application employs a **Client-Server architecture**:
-
-*   **Client (Frontend):** A single-page application (SPA) built with React and Vite. It handles all UI rendering, user interactions, and data display.
-*   **Server (Backend):** A Flask API that manages data storage (SQLite), handles business logic, and orchestrates communication with external AI services.
-
-### How It Works:
-
-1.  **Data Flow:** The frontend communicates with the Flask backend via RESTful API endpoints (`/api/*`) to fetch and update patient health data.
-2.  **AI Integration:** The backend's `sync_data` and `get_vitals` endpoints call the `get_ai_insight` function. This function constructs a dynamic prompt based on the patient's current vitals and state (stable/risk) and sends it to the Hugging Face API's LLM (`openai/gpt-oss-120b:groq`). The LLM then generates a natural language insight.
-3.  **Data Persistence (Frontend):** To ensure a smooth user experience across navigation, the critical dashboard state is saved to and loaded from the browser's `sessionStorage`.
-4.  **Database Seeding & Management:** An `init_db()` function in `database.py` sets up the SQLite schema and seeds it with demo patient and health data upon application startup, providing a consistent environment for testing.
-
 ## ⚙️ Installation & Setup
-
-To get Pataki Health Watch running locally, follow these steps:
+To get Pataki running locally, follow these steps:
 
 1.  **Clone the repository:**
     ```bash
@@ -113,7 +92,4 @@ Once the application is running:
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to open issues or submit pull requests.
-
-## 📄 License
-
-This project is licensed under the MIT License. See the `LICENSE` file for details.
+   
